@@ -14,7 +14,7 @@ A real-time interactive web application for monitoring forest fires in Turkey. U
 
 ## Live Demo
 
-**GitHub Pages**: https://zaferguner.github.io/ormanlar
+**GitHub Pages**: https://zaferguner.github.io/yangin-izleme-sistemi
 
 ## Data Sources
 

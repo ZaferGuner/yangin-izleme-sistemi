@@ -2,9 +2,9 @@
 .env
 .env.local
 .env.production
+config.py
 
 # API Keys
-config.py
 secrets.py
 api_keys.py
 
