@@ -13,13 +13,15 @@ from difflib import SequenceMatcher
 import threading
 from urllib.parse import urljoin, urlparse
 
-try:
-    from config import NASA_API_KEY, NEWS_CACHE_DURATION, NEWS_TIMEOUT, MAX_NEWS_ITEMS
-except ImportError:
-    NASA_API_KEY = os.environ.get('NASA_API_KEY', '4b1b802966204ce59193ba163ac88e52')
-    NEWS_CACHE_DURATION = 600
-    NEWS_TIMEOUT = 15
-    MAX_NEWS_ITEMS = 20
+# Load environment variables
+from dotenv import load_dotenv
+load_dotenv()
+
+# Configuration from environment variables
+NASA_API_KEY = os.environ.get('NASA_API_KEY', '')
+NEWS_CACHE_DURATION = int(os.environ.get('NEWS_CACHE_DURATION', '600'))
+NEWS_TIMEOUT = int(os.environ.get('NEWS_TIMEOUT', '15'))
+MAX_NEWS_ITEMS = int(os.environ.get('MAX_NEWS_ITEMS', '20'))
 
 app = Flask(__name__)
 CORS(app)
