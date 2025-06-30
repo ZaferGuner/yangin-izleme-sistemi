@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="tr" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Türkiye Yangın İzleme Sistemi</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="static/css/style.css">
+    
+    <!-- Theme Variables -->
+    <style>
+        :root {
+            /* Light Theme */
+            --bg-primary: #ffffff;
+            --bg-secondary: #f8fafc;
+            --bg-tertiary: #e2e8f0;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --accent-primary: #dc2626;
+            --accent-secondary: #ea580c;
+            --border-color: #e2e8f0;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --gradient-fire: linear-gradient(135deg, #dc2626 0%, #ea580c 50%, #f59e0b 100%);
+        }
+        
+        [data-theme="dark"] {
+            /* Dark Theme */
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-tertiary: #334155;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --accent-primary: #ef4444;
+            --accent-secondary: #f97316;
+            --border-color: #334155;
+            --shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
+            --gradient-fire: linear-gradient(135deg, #ef4444 0%, #f97316 50%, #fbbf24 100%);
+        }
+        
+        .leaflet-heatmap-layer,
+        canvas.leaflet-heatmap-layer {
+            opacity: 1.0 !important;
+            z-index: 1000 !important;
+        }
+        
+        .leaflet-overlay-pane canvas {
+            z-index: 999 !important;
+        }
+    </style>
+</head>
+<body>
+    <!-- Premium Header -->
+    <header class="premium-header">
+        <div class="header-container">
+            <!-- Logo & Brand -->
+            <div class="brand-section">
+                <div class="logo-wrapper">
+                    <i class="fas fa-fire brand-icon"></i>
+                    <div class="brand-text">
+                        <h1 class="brand-title">Fire</h1>
+                        <span class="brand-subtitle">TURKEY LIVE MONITORING</span>
+                        <a href="https://zaferguner.com" target="_blank" class="designer-credit">
+                            ZaferGuner tarafından tasarlandı
+                        </a>
+                    </div>
+                </div>
+                <div class="system-status">
+                    <div class="status-indicator online">
+                        <div class="status-dot"></div>
+                        <span>Live</span>
+                    </div>
+                </div>
+                <!-- Mobile Hamburger Button -->
+                <button class="mobile-menu-toggle" onclick="toggleMobileMenu()">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+            
+            <!-- Desktop Stats Bar -->
+            <div class="stats-bar desktop-stats">
+                <div class="stat-card" title="Toplam tespit edilen aktif yangın sayısı">
+                    <div class="stat-icon">
+                        <i class="fas fa-fire"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-number" id="fireCount">Yükleniyor...</div>
+                        <div class="stat-label">Aktif Yangın</div>
+                    </div>
+                </div>
+                <div class="stat-card" title="Gündüz saatlerinde (06:00-18:00) tespit edilen yangınlar">
+                    <div class="stat-icon">
+                        <i class="fas fa-sun"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-number" id="dayFires">-</div>
+                        <div class="stat-label">Gündüz</div>
+                    </div>
+                </div>
+                <div class="stat-card" title="Gece saatlerinde (18:00-06:00) tespit edilen yangınlar">
+                    <div class="stat-icon">
+                        <i class="fas fa-moon"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-number" id="nightFires">-</div>
+                        <div class="stat-label">Gece</div>
+                    </div>
+                </div>
+                <div class="stat-card" title="Ortalama termal parlaklık değeri (Kelvin cinsinden)">
+                    <div class="stat-icon">
+                        <i class="fas fa-thermometer-half"></i>
+                    </div>
+                    <div class="stat-content">
+                        <div class="stat-number" id="avgBrightness">-</div>
+                        <div class="stat-label">Ort. Sıcaklık</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Desktop Controls -->
+            <div class="header-controls desktop-controls">
+                <div class="control-group">
+                    <button class="control-btn refresh-btn" onclick="refreshData()" title="Verileri Yenile">
+                        <i class="fas fa-sync-alt" id="refreshIcon"></i>
+                        <span>Yenile</span>
+                    </button>
+                    <button class="control-btn theme-toggle" onclick="toggleTheme()" title="Tema Değiştir">
+                        <i class="fas fa-moon" id="themeIcon"></i>
+                    </button>
+                </div>
+                <div class="update-info">
+                    <div class="update-text">
+                        <span>Son güncelleme:</span>
+                        <span id="lastUpdate">-</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Mobile Menu Content -->
+            <div class="mobile-menu-content" id="mobileMenuContent">
+                <!-- Mobile Stats Bar -->
+                <div class="stats-bar mobile-stats">
+                    <div class="stat-card" title="Toplam tespit edilen aktif yangın sayısı">
+                        <div class="stat-icon">
+                            <i class="fas fa-fire"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-number" id="fireCountMobile">Yükleniyor...</div>
+                            <div class="stat-label">Aktif Yangın</div>
+                        </div>
+                    </div>
+                    <div class="stat-card" title="Gündüz saatlerinde (06:00-18:00) tespit edilen yangınlar">
+                        <div class="stat-icon">
+                            <i class="fas fa-sun"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-number" id="dayFiresMobile">-</div>
+                            <div class="stat-label">Gündüz</div>
+                        </div>
+                    </div>
+                    <div class="stat-card" title="Gece saatlerinde (18:00-06:00) tespit edilen yangınlar">
+                        <div class="stat-icon">
+                            <i class="fas fa-moon"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-number" id="nightFiresMobile">-</div>
+                            <div class="stat-label">Gece</div>
+                        </div>
+                    </div>
+                    <div class="stat-card" title="Ortalama termal parlaklık değeri (Kelvin cinsinden)">
+                        <div class="stat-icon">
+                            <i class="fas fa-thermometer-half"></i>
+                        </div>
+                        <div class="stat-content">
+                            <div class="stat-number" id="avgBrightnessMobile">-</div>
+                            <div class="stat-label">Ort. Sıcaklık</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Mobile Controls -->
+                <div class="header-controls mobile-controls">
+                    <div class="control-group">
+                        <button class="control-btn refresh-btn" onclick="refreshData()" title="Verileri Yenile">
+                            <i class="fas fa-sync-alt"></i>
+                            <span>Yenile</span>
+                        </button>
+                        <button class="control-btn theme-toggle" onclick="toggleTheme()" title="Tema Değiştir">
+                            <i class="fas fa-moon"></i>
+                        </button>
+                    </div>
+                    <div class="update-info">
+                        <div class="update-text">
+                            <span>Son güncelleme:</span>
+                            <span id="lastUpdateMobile">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- News Ticker -->
+    <div class="news-ticker-container" id="newsTickerContainer">
+        <div class="news-ticker-wrapper">
+            <div class="news-ticker-content" id="newsTickerContent">
+                <div class="news-item loading">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <span>Haberler yükleniyor...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Map Container -->
+    <div class="map-main" id="map"></div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Veriler yükleniyor...</div>
+        </div>
+    </div>
+
+    <!-- Legend Panel -->
+    <div class="legend-panel">
+        <div class="legend-header" onclick="toggleMobileLegend()">
+            <h3>Yangın Şiddeti</h3>
+            <i class="fas fa-chevron-down legend-toggle-icon" id="legendChevron"></i>
+        </div>
+        <div class="legend-content">
+            <div class="legend-item">
+                <div class="legend-color high"></div>
+                <span>Yüksek (0.8-1.0)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color medium"></div>
+                <span>Orta (0.6-0.8)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color low"></div>
+                <span>Düşük (0.4-0.6)</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color very-low"></div>
+                <span>Çok Düşük (0.1-0.4)</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <!-- Leaflet Heat Plugin -->
+    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+    
+    <!-- Alternatif Heat Plugin (yedek) -->
+    <script>
+        if (typeof L.heatLayer === 'undefined') {
+            console.log('Ana heat plugin yüklenmedi, alternatif yükleniyor...');
+            var script = document.createElement('script');
+            script.src = 'https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js';
+            script.onload = function() {
+                console.log('Alternatif heat plugin yüklendi');
+            };
+            script.onerror = function() {
+                console.error('Heat plugin yüklenemedi!');
+            };
+            document.head.appendChild(script);
+        } else {
+            console.log('Heat plugin başarıyla yüklendi');
+        }
+    </script>
+    
+    <!-- Theme Toggle Function -->
+    <script>
+        function toggleMobileMenu() {
+            const menuToggle = document.querySelector('.mobile-menu-toggle');
+            const menuContent = document.getElementById('mobileMenuContent');
+            const mapContainer = document.querySelector('.map-main');
+            
+            menuToggle.classList.toggle('active');
+            
+            setTimeout(() => {
+                menuContent.classList.toggle('active');
+            }, 50);
+            
+            const leafletControls = document.querySelectorAll('.leaflet-control-layers, .leaflet-bar, .leaflet-control');
+            if (menuContent.classList.contains('active')) {
+                setTimeout(() => {
+                    leafletControls.forEach(control => {
+                        control.style.zIndex = '1000';
+                        control.style.opacity = '1';
+                        control.style.transition = 'all 0.3s ease';
+                    });
+                    mapContainer.classList.remove('mobile-nav-open');
+                }, 100);
+            } else {
+                leafletControls.forEach(control => {
+                    control.style.zIndex = '600';
+                    control.style.opacity = '1';
+                    control.style.transition = 'all 0.3s ease';
+                });
+                mapContainer.classList.add('mobile-nav-open');
+            }
+        }
+        
+        function toggleMobileLegend() {
+            if (window.innerWidth > 768) {
+                return;
+            }
+            
+            const legendPanel = document.querySelector('.legend-panel');
+            const chevronIcon = document.getElementById('legendChevron');
+            
+            legendPanel.classList.toggle('mobile-open');
+            
+            if (legendPanel.classList.contains('mobile-open')) {
+                if (chevronIcon) chevronIcon.className = 'fas fa-chevron-up legend-toggle-icon';
+            } else {
+                if (chevronIcon) chevronIcon.className = 'fas fa-chevron-down legend-toggle-icon';
+            }
+        }
+        
+        let newsRefreshTimeout;
+        let newsTickerVisible = true;
+        
+        function toggleNewsTicker() {
+            const container = document.getElementById('newsTickerContainer');
+            const mapContainer = document.querySelector('.map-main');
+            
+            newsTickerVisible = !newsTickerVisible;
+            
+            if (newsTickerVisible) {
+                container.classList.remove('hidden');
+                mapContainer.style.paddingTop = '170px';
+            } else {
+                container.classList.add('hidden');
+                mapContainer.style.paddingTop = '120px';
+            }
+        }
+        
+        function refreshNews() {
+            // GitHub Pages için statik mod kontrolü
+            if (window.location.hostname === 'github.io' || window.location.hostname.includes('github-pages')) {
+                console.log('GitHub Pages modu - statik haberler yenileniyor');
+                if (typeof loadStaticNewsTicker !== 'undefined') {
+                    loadStaticNewsTicker();
+                }
+                return;
+            }
+            
+            fetch('/api/news/refresh')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        loadNewsTicker();
+                        console.log('Haberler yenilendi:', data.count, 'haber');
+                    } else {
+                        console.error('Haber yenileme hatası:', data.message);
+                        if (typeof loadStaticNewsTicker !== 'undefined') {
+                            loadStaticNewsTicker();
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Haber yenileme fetch hatası:', error);
+                    if (typeof loadStaticNewsTicker !== 'undefined') {
+                        loadStaticNewsTicker();
+                    }
+                });
+        }
+        
+        function loadNewsTicker() {
+            // GitHub Pages için statik mod kontrolü
+            if (window.location.hostname === 'github.io' || window.location.hostname.includes('github-pages')) {
+                console.log('GitHub Pages modu - statik haberler kullanılıyor');
+                if (typeof loadStaticNewsTicker !== 'undefined') {
+                    loadStaticNewsTicker();
+                } else {
+                    console.error('Statik haber fonksiyonu bulunamadı!');
+                }
+                return;
+            }
+            
+            const tickerContent = document.getElementById('newsTickerContent');
+            
+            fetch('/api/news/ticker')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.ticker_news.length > 0) {
+                        let newsHtml = '';
+                        
+                        data.ticker_news.forEach((news, index) => {
+                            newsHtml += `
+                                <a href="${news.link}" target="_blank" class="news-item" title="${news.title}">
+                                    <span>${news.title}</span>
+                                    <span class="news-source">${news.source}</span>
+                                </a>
+                                ${index < data.ticker_news.length - 1 ? '<span class="news-separator">•</span>' : ''}
+                            `;
+                        });
+                        
+                        newsHtml = newsHtml + newsHtml;
+                        
+                        tickerContent.innerHTML = newsHtml;
+                        
+                        tickerContent.style.animation = 'none';
+                        setTimeout(() => {
+                            tickerContent.style.animation = 'scroll-left 60s linear infinite';
+                        }, 100);
+                        
+                        console.log('✅ Haber şeridi güncellendi:', data.count, 'haber');
+                    } else {
+                        tickerContent.innerHTML = `
+                            <div class="news-item loading">
+                                <i class="fas fa-info-circle"></i>
+                                <span>Şu anda yangın haberi bulunmuyor</span>
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    console.error('Haber yükleme hatası:', error);
+                    console.log('API hatası - statik haberler kullanılıyor');
+                    if (typeof loadStaticNewsTicker !== 'undefined') {
+                        loadStaticNewsTicker();
+                    } else {
+                        tickerContent.innerHTML = `
+                            <div class="news-item loading">
+                                <i class="fas fa-exclamation-triangle"></i>
+                                <span>Haber yüklenemedi</span>
+                            </div>
+                        `;
+                    }
+                });
+        }
+        
+        function startNewsAutoRefresh() {
+            loadNewsTicker();
+            
+            setInterval(() => {
+                loadNewsTicker();
+            }, 10 * 60 * 1000);
+        }
+        
+        // Theme toggle functionality
+        function toggleTheme() {
+            const html = document.documentElement;
+            const themeIcon = document.getElementById('themeIcon');
+            const themeButton = document.querySelector('.theme-toggle');
+            
+            if (html.getAttribute('data-theme') === 'dark') {
+                html.setAttribute('data-theme', 'light');
+                themeIcon.className = 'fas fa-sun';
+                themeButton.title = 'Karanlık Moda Geç';
+                localStorage.setItem('theme', 'light');
+            } else {
+                html.setAttribute('data-theme', 'dark');
+                themeIcon.className = 'fas fa-moon';
+                themeButton.title = 'Aydınlık Moda Geç';
+                localStorage.setItem('theme', 'dark');
+            }
+        }
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            const html = document.documentElement;
+            const themeIcon = document.getElementById('themeIcon');
+            const themeButton = document.querySelector('.theme-toggle');
+            
+            html.setAttribute('data-theme', savedTheme);
+            if (savedTheme === 'light') {
+                themeIcon.className = 'fas fa-sun';
+                themeButton.title = 'Karanlık Moda Geç';
+            } else {
+                themeIcon.className = 'fas fa-moon';
+                themeButton.title = 'Aydınlık Moda Geç';
+            }
+            
+            startNewsAutoRefresh();
+        });
+    </script>
+    
+    <script src="static/js/fire-data.js"></script>
+    <script src="static/js/news-ticker.js"></script>
+    <script src="static/js/map.js"></script>
+</body>
+</html> 
